@@ -1,0 +1,11 @@
+[package]
+name = "driver"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+packets = { workspace = true }
+tokio = { workspace = true, features = ["macros", "rt-multi-thread", "net", "sync"] }
+errors = { workspace = true }
+log = { workspace = true }
+tracing-subscriber = { workspace = true }

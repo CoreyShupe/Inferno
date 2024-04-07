@@ -1,0 +1,30 @@
+[package]
+name = "inferno"
+version = "0.0.1"
+edition = "2021"
+
+[workspace]
+resolver = "2"
+members = [
+    "crates/errors",
+    "crates/packets",
+    "driver",
+    "examples/echo-key",
+    "server",
+]
+
+[dependencies]
+errors = { path = "crates/errors" }
+driver = { path = "driver" }
+
+[workspace.dependencies]
+# Local Crate Re-Exports
+errors = { path = "crates/errors" }
+packets = { path = "crates/packets" }
+
+# Tokio
+tokio = { version = "1.37" }
+
+# Logging
+tracing-subscriber = { version = "0.3.18" }
+log = { version = "0.4.21" }
