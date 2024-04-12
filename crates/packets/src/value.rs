@@ -5,8 +5,14 @@ use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub enum ValueType {
     None,
-    UInt(u32),
+    Int(i32),
     String(String),
+}
+
+impl Default for ValueType {
+    fn default() -> Self {
+        Self::None
+    }
 }
 
 impl Packet for ValueType {
@@ -19,9 +25,9 @@ impl Packet for ValueType {
                 stream.write_u8(0).await?;
                 Ok(())
             }
-            ValueType::UInt(uint) => {
+            ValueType::Int(int) => {
                 stream.write_u8(1).await?;
-                stream.write_u32(*uint).await?;
+                stream.write_i32(*int).await?;
                 Ok(())
             }
             ValueType::String(string) => {
@@ -39,7 +45,7 @@ impl Packet for ValueType {
         let value = stream.read_u8().await?;
         match value {
             0 => Ok(ValueType::None),
-            1 => Ok(ValueType::UInt(stream.read_u32().await?)),
+            1 => Ok(ValueType::Int(stream.read_i32().await?)),
             2 => Ok(ValueType::String(String::read(stream).await?)),
             _ => Err(InfernoError::Packets(
                 errors::PacketsError::UnknownValueType(value),

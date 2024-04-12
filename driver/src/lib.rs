@@ -1,54 +1,36 @@
+pub mod prelude;
+
 use errors::Result;
-pub use packets::value::ValueType;
-pub use packets::{ClientCommand, Packet, ServerResponse};
-use std::future::Future;
+use packets::{ClientCommand, Packet, PacketSender, ServerResponse};
 use std::sync::Arc;
 use tokio::sync::RwLock;
-
-macro_rules! async_trait_command {
-    ($(fn $name:ident($($field:ident: $field_type:ty),*) {
-        $create_response:expr
-    })*) => {
-        $(#[allow(async_fn_in_trait)]
-        async fn $name(self, $($field: $field_type),*) -> Result<ServerResponse> {
-            self.send(&$create_response).await
-        })*
-    }
-}
-
-pub trait CommandSender: Sized {
-    fn send(self, packet: &ClientCommand) -> impl Future<Output = Result<ServerResponse>>;
-
-    async_trait_command! {
-        fn get(key: &str) {
-            ClientCommand::Get { key: key.to_string() }
-        }
-
-        fn set(key: &str, value: ValueType) {
-            ClientCommand::Set { key: key.to_string(), value }
-        }
-
-        fn del(key: &str) {
-            ClientCommand::Del { key: key.to_string() }
-        }
-    }
-}
 
 pub struct Client {
     stream: tokio::net::TcpStream,
 }
 
 impl Client {
-    pub async fn connect(addr: &str) -> errors::Result<Self> {
+    pub async fn connect(addr: &str) -> Result<Self> {
         let stream = tokio::net::TcpStream::connect(addr).await?;
         Ok(Self { stream })
     }
+
+    pub fn into_ref(self) -> ClientRef {
+        ClientRef::from(self)
+    }
 }
 
-impl CommandSender for &mut Client {
-    async fn send(self, packet: &ClientCommand) -> errors::Result<ServerResponse> {
+impl PacketSender<ClientCommand, ServerResponse> for &mut Client {
+    async fn send(self, packet: &ClientCommand) -> Result<ServerResponse> {
         packet.write(&mut self.stream).await?;
-        Ok(ServerResponse::read(&mut self.stream).await?)
+
+        let response = ServerResponse::read(&mut self.stream).await?;
+
+        if let ServerResponse::Error { err } = response {
+            Err(err)
+        } else {
+            Ok(response)
+        }
     }
 }
 
@@ -66,7 +48,7 @@ impl From<Client> for ClientRef {
 }
 
 impl ClientRef {
-    pub async fn connect(addr: &str) -> errors::Result<Self> {
+    pub async fn connect(addr: &str) -> Result<Self> {
         let client = Client::connect(addr).await?;
         Ok(Self {
             shared_client: Arc::new(RwLock::new(client)),
@@ -74,8 +56,8 @@ impl ClientRef {
     }
 }
 
-impl CommandSender for &ClientRef {
-    async fn send(self, packet: &ClientCommand) -> errors::Result<ServerResponse> {
+impl PacketSender<ClientCommand, ServerResponse> for &ClientRef {
+    async fn send(self, packet: &ClientCommand) -> Result<ServerResponse> {
         self.shared_client.write().await.send(packet).await
     }
 }

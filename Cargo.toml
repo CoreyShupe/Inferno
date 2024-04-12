@@ -10,6 +10,7 @@ members = [
     "crates/packets",
     "driver",
     "examples/echo-key",
+    # "examples/hash-map",
     "server",
 ]
 
